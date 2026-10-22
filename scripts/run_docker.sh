@@ -15,6 +15,7 @@ Lance l'API et conserve les poids dans un volume Docker nommé.
   --threads N       Nombre de threads CPU PyTorch
   --offline         Exiger des poids déjà en cache
   --env-file FILE   Variables MEGALOC_* dans un fichier d'environnement
+  --no-proxy        Ne pas transmettre les variables de proxy du terminal
   --detach          Lancer en arrière-plan
   -h, --help         Afficher cette aide
 
@@ -33,6 +34,7 @@ bind="127.0.0.1"
 cache_volume="megaloc-hf-cache"
 options=()
 env_options=()
+forward_proxy=true
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --image) need_value "$@"; image="$2"; shift 2 ;;
@@ -57,6 +59,7 @@ while [[ $# -gt 0 ]]; do
       [[ -f "$2" ]] || die "Fichier introuvable : $2"
       options+=(--env-file "$2"); shift 2 ;;
     --detach) options+=(--detach); shift ;;
+    --no-proxy) forward_proxy=false; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Option inconnue : $1 (voir --help)" ;;
   esac
@@ -64,6 +67,13 @@ done
 [[ "$port" =~ ^[0-9]{1,5}$ ]] || die "--port doit être un entier entre 1 et 65535."
 (( 10#$port >= 1 && 10#$port <= 65535 )) || die "--port doit être entre 1 et 65535."
 command -v docker >/dev/null || die "Docker est introuvable."
+if "$forward_proxy"; then
+  for proxy_var in HTTP_PROXY HTTPS_PROXY FTP_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy ftp_proxy all_proxy no_proxy; do
+    if [[ -n "${!proxy_var:-}" ]]; then
+      env_options+=(--env "$proxy_var")
+    fi
+  done
+fi
 echo "Swagger après chargement du modèle : http://$bind:$port/docs"
 exec docker run --rm --name "$name" \
   --publish "$bind:$port:8000" \

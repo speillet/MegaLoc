@@ -235,8 +235,30 @@ For Docker run options, see the [official reference](https://docs.docker.com/eng
 If a build reports `Unable to locate package libgomp1`, check the preceding APT
 messages: a timeout fetching package indexes can cause this error. The Dockerfile
 uses [Debian's HTTPS repositories](https://wiki.debian.org/SourcesList), retries
-downloads, and stops if any package index cannot be updated. If HTTPS downloads
-also fail, check the Docker network/proxy configuration. A build warning about
+downloads, and stops if any package index cannot be updated.
+
+On networks requiring a proxy, the build and run scripts automatically forward
+exported proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `FTP_PROXY`, `ALL_PROXY`,
+`NO_PROXY`, and their lowercase equivalents). This lets APT/pip download packages
+and lets the API download model weights at startup. The scripts pass variable
+names to Docker, without printing their values. Proxy values are not added to the
+Dockerfile or baked into the image. See [Docker's proxy documentation](https://docs.docker.com/engine/cli/proxy/).
+Use `--no-proxy` to disable forwarding from the terminal; any proxy settings in
+Docker's own configuration or `--env-file` still apply. If using `sudo`, ensure
+the proxy environment is preserved according to your system's sudo policy.
+
+If HTTPS still times out inside the build but works on the host, try host
+networking on Linux:
+
+```bash
+./scripts/build_docker.sh --network host
+```
+
+This uses the Docker builder host's network for build steps only; it does not
+change the API's port mapping. A remote builder uses its own host's network.
+Custom BuildKit builders may require the `network.host` entitlement. A proxy
+address pointing at `localhost` must also be reachable from inside the container;
+in a bridged container `localhost` refers to that container. A build warning about
 missing Git commit information is separate from APT connectivity errors.
 
 ### FAQ
