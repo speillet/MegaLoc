@@ -176,7 +176,8 @@ docker logs -f megaloc-api
 docker stop megaloc-api
 ```
 
-Swagger: **http://127.0.0.1:8000/docs** after model loading. To change the image tag,
+Swagger: **http://127.0.0.1:8001/docs** after model loading. The default host port
+is 8001; use `--port PORT` to select another one. To change the image tag,
 port, or mount the test data:
 
 ```bash
@@ -197,12 +198,12 @@ Build and run the API on CPU:
 ```bash
 docker build -t megaloc-api .
 docker run --rm --name megaloc-api \
-  -p 127.0.0.1:8000:8000 \
+  -p 127.0.0.1:8001:8000 \
   -v megaloc-hf-cache:/home/megaloc/.cache/huggingface \
   megaloc-api
 ```
 
-Swagger is available at **http://127.0.0.1:8000/docs** once the model has loaded.
+Swagger is available at **http://127.0.0.1:8001/docs** once the model has loaded.
 The first launch downloads the weights. The named volume preserves them across
 container restarts; weights are not embedded in the image. The image installs
 CPU wheels from the [official PyTorch index](https://docs.pytorch.org/get-started/previous-versions/).
@@ -211,7 +212,7 @@ The container runs as UID 10001 with one Uvicorn worker and a `/health` health c
 Test it from another terminal with a file on the host:
 
 ```bash
-python test_api_client.py /path/to/image.jpg --output response.json
+python test_api_client.py /path/to/image.jpg --url http://127.0.0.1:8001 --output response.json
 ```
 
 Uploads work without mounting image directories. For `/infer/paths`, mount your
@@ -219,7 +220,7 @@ data read-only and use the paths **inside the container**, such as `/data/image.
 
 ```bash
 docker run --rm --name megaloc-api \
-  -p 127.0.0.1:8000:8000 \
+  -p 127.0.0.1:8001:8000 \
   -v megaloc-hf-cache:/home/megaloc/.cache/huggingface \
   -v /home/SPeillet/projects/sevilla/data:/data:ro \
   -e MEGALOC_THREADS=4 \

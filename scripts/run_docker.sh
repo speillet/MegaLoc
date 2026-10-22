@@ -8,7 +8,7 @@ Lance l'API et conserve les poids dans un volume Docker nommé.
 
   --image NAME       Image à lancer (défaut : megaloc-api:latest)
   --name NAME        Nom du conteneur (défaut : megaloc-api)
-  --port PORT        Port local (défaut : 8000)
+  --port PORT        Port local (défaut : 8001)
   --bind ADDRESS     Adresse d'écoute sur l'hôte (défaut : 127.0.0.1)
   --cache-volume V   Volume des poids (défaut : megaloc-hf-cache)
   --data-dir DIR    Dossier hôte monté en lecture seule dans /data
@@ -29,7 +29,7 @@ need_value() { [[ $# -ge 2 && -n "$2" ]] || die "Valeur manquante pour $1"; }
 
 image="megaloc-api:latest"
 name="megaloc-api"
-port="8000"
+port="8001"
 bind="127.0.0.1"
 cache_volume="megaloc-hf-cache"
 options=()
