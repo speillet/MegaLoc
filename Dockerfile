@@ -11,8 +11,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Some networks block outbound HTTP (port 80); Debian also serves APT over HTTPS.
-RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+# Docker supplies predefined proxy variables through --build-arg. Normalize
+# their case for APT and pip, and reuse the HTTP proxy for HTTPS if needed.
+# Keep this scoped to RUN so proxy settings are not persisted with ENV.
+RUN export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
+           https_proxy="${https_proxy:-${HTTPS_PROXY:-${http_proxy:-${HTTP_PROXY:-}}}}" \
+           no_proxy="${no_proxy:-${NO_PROXY:-}}" \
+    && sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get -o Acquire::Retries=3 -o APT::Update::Error-Mode=any update \
     && apt-get -o Acquire::Retries=3 install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
@@ -21,7 +26,10 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
     && chown -R megaloc:megaloc /home/megaloc/.cache
 
 COPY requirements-api.txt ./
-RUN python -m pip install torch torchvision --index-url "${TORCH_INDEX_URL}" \
+RUN export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
+           https_proxy="${https_proxy:-${HTTPS_PROXY:-${http_proxy:-${HTTP_PROXY:-}}}}" \
+           no_proxy="${no_proxy:-${NO_PROXY:-}}" \
+    && python -m pip install torch torchvision --index-url "${TORCH_INDEX_URL}" \
     && python -m pip install -r requirements-api.txt
 
 COPY api.py inference.py megaloc_model.py test_megaloc.py ./

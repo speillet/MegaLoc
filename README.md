@@ -243,6 +243,15 @@ exported proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `FTP_PROXY`, `ALL_PROXY`,
 and lets the API download model weights at startup. The scripts pass variable
 names to Docker, without printing their values. Proxy values are not added to the
 Dockerfile or baked into the image. See [Docker's proxy documentation](https://docs.docker.com/engine/cli/proxy/).
+The Dockerfile normalizes uppercase/lowercase proxy names for APT and pip and
+uses the HTTP proxy for HTTPS when no dedicated HTTPS proxy is provided.
+To build directly without the helper script, pass exported proxy variables:
+
+```bash
+docker build --build-arg http_proxy --build-arg https_proxy --build-arg no_proxy \
+  -t megaloc-api .
+```
+
 Use `--no-proxy` to disable forwarding from the terminal; any proxy settings in
 Docker's own configuration or `--env-file` still apply. If using `sudo`, ensure
 the proxy environment is preserved according to your system's sudo policy.
