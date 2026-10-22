@@ -148,6 +148,22 @@ python -m pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
+### Manual API client
+
+With the API running, install the lightweight client dependency and send an image:
+
+```bash
+python -m pip install 'httpx>=0.27,<1'
+python test_api_client.py /path/to/image.jpg --output response.json
+```
+
+Use `--url http://127.0.0.1:8000` to select a server, `--references ref1.jpg ref2.jpg`
+to compare images, or `--mode paths` to send server-side paths instead of files.
+`--size HEIGHT WIDTH`, `--batch-size`, `--top-k`, `--timeout`, and
+`--include-descriptors` customize the request. `--recursive` is available in paths
+mode. The script checks `/health`, prints a compact result, and exits with a nonzero
+code on connection or HTTP errors. See `python test_api_client.py --help`.
+
 ### FAQ
 
 **How do I reproduce the paper's results?** With [VPR-methods-evaluation](https://github.com/gmberton/VPR-methods-evaluation) and the datasets from [VPR-datasets-downloader](https://github.com/gmberton/VPR-datasets-downloader), which has the exact splits we used ([#13](https://github.com/gmberton/MegaLoc/issues/13)).
