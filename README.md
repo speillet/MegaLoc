@@ -37,6 +37,37 @@ similarities = descriptors @ descriptors.T  # cosine similarities
 
 For more complex uses, like computing results on VPR datasets, visualizing predictions and so on, you can use our [VPR-methods-evaluation](https://github.com/gmberton/VPR-methods-evaluation), which lets you do all this for MegaLoc and multiple other VPR methods on labelled or unlabelled datasets.
 
+### Local command line
+
+Run from this repository with the Python environment activated:
+
+```bash
+# Extract and save one image descriptor
+python test_megaloc.py image.jpg --output descriptor.pt
+
+# Rank reference images for each query image
+python test_megaloc.py image.jpg --references ./database --recursive --top-k 5 --json-output matches.json
+
+# Process a directory in batches
+python test_megaloc.py ./images --device cuda --batch-size 4 --output descriptors.pt
+
+python test_megaloc.py --help
+```
+
+The default preprocessing matches the example above (ImageNet normalization and
+322×322 resize); EXIF orientation is applied before conversion to RGB. Custom
+`--size HEIGHT WIDTH` values must be multiples of 14. Device selection is automatic
+(CUDA, MPS, then CPU); `--threads` controls CPU threading. Pretrained architecture
+dimensions are fixed to match the weights.
+
+Weights are downloaded from Hugging Face on first use. Use `--cache-dir` for a
+custom cache, `--offline` to require cached weights, or `--weights model.safetensors`
+for a local checkpoint. The `.pt` output contains image paths, CPU descriptors,
+reference descriptors when supplied, and preprocessing metadata. The JSON report
+contains descriptor norms and top reference matches with cosine similarities
+(higher means more similar, not a probability). MegaLoc does not return GPS
+coordinates directly. Matching images present in both inputs can match themselves.
+
 ### FAQ
 
 **How do I reproduce the paper's results?** With [VPR-methods-evaluation](https://github.com/gmberton/VPR-methods-evaluation) and the datasets from [VPR-datasets-downloader](https://github.com/gmberton/VPR-datasets-downloader), which has the exact splits we used ([#13](https://github.com/gmberton/MegaLoc/issues/13)).
