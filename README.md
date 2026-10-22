@@ -141,6 +141,12 @@ across concurrent requests. This local API has no authentication; `/infer/paths`
 reads paths accessible to the server process.
 
 The uploads follow the [FastAPI file/form conventions](https://fastapi.tiangolo.com/tutorial/request-files/).
+To run HTTP integration tests (small replacement model; no weight download):
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
 
 ### FAQ
 
