@@ -1,4 +1,4 @@
-"""Manual client for a running MegaLoc API (no local PyTorch required)."""
+"""Envoie une image à l'API MegaLoc et affiche le résultat, sans charger le modèle localement."""
 
 import argparse
 from contextlib import ExitStack
@@ -10,9 +10,12 @@ import httpx
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Exemple : python test_api_client.py image.jpg --output resultat.json",
+    )
     parser.add_argument("images", nargs="+", help="Images locales (upload) ou chemins côté serveur (paths).")
-    parser.add_argument("--url", default="http://127.0.0.1:8000", help="URL de base de l'API.")
+    parser.add_argument("--url", default="http://127.0.0.1:8001", help="URL de base de l'API (défaut : http://127.0.0.1:8001).")
     parser.add_argument("--mode", choices=["upload", "paths"], default="upload")
     parser.add_argument("--references", nargs="+", default=[])
     parser.add_argument("--recursive", action="store_true", help="Parcourir les dossiers côté serveur en mode paths.")

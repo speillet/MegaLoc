@@ -157,7 +157,9 @@ python -m pip install 'httpx>=0.27,<1'
 python test_api_client.py /path/to/image.jpg --output response.json
 ```
 
-Use `--url http://127.0.0.1:8000` to select a server, `--references ref1.jpg ref2.jpg`
+The default URL is `http://127.0.0.1:8001`, matching the Docker launch script.
+Use `--url http://127.0.0.1:8000` for a server started directly with Uvicorn on
+port 8000, `--references ref1.jpg ref2.jpg`
 to compare images, or `--mode paths` to send server-side paths instead of files.
 `--size HEIGHT WIDTH`, `--batch-size`, `--top-k`, `--timeout`, and
 `--include-descriptors` customize the request. `--recursive` is available in paths
