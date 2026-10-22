@@ -232,6 +232,13 @@ also be mounted read-only and selected with `-e MEGALOC_WEIGHTS=/weights/model.s
 The `.dockerignore` excludes the Python environment, Git history, and local outputs.
 For Docker run options, see the [official reference](https://docs.docker.com/engine/containers/run/).
 
+If a build reports `Unable to locate package libgomp1`, check the preceding APT
+messages: a timeout fetching package indexes can cause this error. The Dockerfile
+uses [Debian's HTTPS repositories](https://wiki.debian.org/SourcesList), retries
+downloads, and stops if any package index cannot be updated. If HTTPS downloads
+also fail, check the Docker network/proxy configuration. A build warning about
+missing Git commit information is separate from APT connectivity errors.
+
 ### FAQ
 
 **How do I reproduce the paper's results?** With [VPR-methods-evaluation](https://github.com/gmberton/VPR-methods-evaluation) and the datasets from [VPR-datasets-downloader](https://github.com/gmberton/VPR-datasets-downloader), which has the exact splits we used ([#13](https://github.com/gmberton/MegaLoc/issues/13)).
