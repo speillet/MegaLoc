@@ -166,6 +166,32 @@ code on connection or HTTP errors. See `python test_api_client.py --help`.
 
 ### Docker
 
+Build and start with the provided scripts (they also work from another directory):
+
+```bash
+./scripts/build_docker.sh
+./scripts/run_docker.sh --detach
+
+docker logs -f megaloc-api
+docker stop megaloc-api
+```
+
+Swagger: **http://127.0.0.1:8000/docs** after model loading. To change the image tag,
+port, or mount the test data:
+
+```bash
+./scripts/build_docker.sh --image megaloc-api:dev
+./scripts/run_docker.sh --image megaloc-api:dev --port 8080 \
+  --data-dir /home/SPeillet/projects/sevilla/data --threads 4 --detach
+```
+
+Use container paths starting with `/data` for `/infer/paths`. The scripts preserve
+the weight cache in `megaloc-hf-cache` by default. `--offline` requires weights
+already present in that cache. `--env-file` passes server configuration through a
+Docker environment file. See each script's `--help` for all options. By default,
+running in the foreground displays logs; press Ctrl+C to stop. An existing
+container with the same name must be stopped before starting another one.
+
 Build and run the API on CPU:
 
 ```bash
