@@ -237,27 +237,7 @@ messages: a timeout fetching package indexes can cause this error. The Dockerfil
 uses [Debian's HTTPS repositories](https://wiki.debian.org/SourcesList), retries
 downloads, and stops if any package index cannot be updated.
 
-On networks requiring a proxy, configure the Docker client once from a terminal
-where `http_proxy` and/or `https_proxy` are already exported:
-
-```bash
-python3 scripts/configure_docker_proxy.py
-./scripts/build_docker.sh
-./scripts/run_docker.sh --detach
-```
-
-The setup script copies proxy values to `proxies.default` in
-`~/.docker/config.json` (or `$DOCKER_CONFIG/config.json`), keeping other settings
-such as authentication and registry configuration. It writes with mode 0600 and
-prints only parameter names. No proxy values are committed to the repository.
-Run it as the same user that runs Docker: another account, or `sudo docker`, may
-read a different configuration. Run it again after changing proxy settings.
-Docker then applies the configuration to future builds and containers even when
-the terminal no longer exports those variables. Existing containers must be
-recreated. This configures APT/pip and the API's model download, not the Docker
-daemon's own image pulls. No network mode change is required for a reachable proxy.
-
-In addition, the build and run scripts automatically forward
+On networks requiring a proxy, the build and run scripts automatically forward
 exported proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `FTP_PROXY`, `ALL_PROXY`,
 `NO_PROXY`, and their lowercase equivalents). This lets APT/pip download packages
 and lets the API download model weights at startup. The scripts pass variable
