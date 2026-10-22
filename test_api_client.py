@@ -2,9 +2,11 @@
 
 import argparse
 from contextlib import ExitStack
+from ipaddress import ip_address
 import json
 from pathlib import Path
 import sys
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -35,7 +37,13 @@ def main():
     options = {"height": args.size[0], "width": args.size[1], "batch_size": args.batch_size,
                "top_k": args.top_k, "include_descriptors": args.include_descriptors}
     try:
-        with httpx.Client(base_url=args.url.rstrip("/") + "/", timeout=args.timeout) as client:
+        host = (urlsplit(args.url).hostname or "").lower().rstrip(".")
+        try:
+            local_api = ip_address(host).is_loopback
+        except ValueError:
+            local_api = host == "localhost"
+        with httpx.Client(base_url=args.url.rstrip("/") + "/", timeout=args.timeout,
+                          trust_env=not local_api) as client:
             health = client.get("health")
             health.raise_for_status()
             print("État de l'API :", health.json())

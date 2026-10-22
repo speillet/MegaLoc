@@ -165,6 +165,8 @@ to compare images, or `--mode paths` to send server-side paths instead of files.
 `--include-descriptors` customize the request. `--recursive` is available in paths
 mode. The script checks `/health`, prints a compact result, and exits with a nonzero
 code on connection or HTTP errors. See `python test_api_client.py --help`.
+Calls to `localhost` or loopback IPs bypass environment proxies; remote API URLs
+still use proxy settings from the environment.
 
 ### Docker
 
@@ -210,6 +212,8 @@ The first launch downloads the weights. The named volume preserves them across
 container restarts; weights are not embedded in the image. The image installs
 CPU wheels from the [official PyTorch index](https://docs.pytorch.org/get-started/previous-versions/).
 The container runs as UID 10001 with one Uvicorn worker and a `/health` health check.
+The health check connects directly to the API inside the container, bypassing
+proxies even if `NO_PROXY` is missing. External model downloads still use the proxy.
 
 Test it from another terminal with a file on the host:
 
