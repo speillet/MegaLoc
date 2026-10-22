@@ -68,6 +68,80 @@ contains descriptor norms and top reference matches with cosine similarities
 (higher means more similar, not a probability). MegaLoc does not return GPS
 coordinates directly. Matching images present in both inputs can match themselves.
 
+### HTTP API (FastAPI + Swagger)
+
+Requires Python 3.10 or newer. From the repository, activate your environment and run:
+
+```bash
+python -m pip install -r requirements-api.txt
+python -m uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Open **http://127.0.0.1:8000/docs** for interactive Swagger documentation: expand
+an endpoint, click **Try it out**, supply inputs, then **Execute**. ReDoc is at
+`/redoc` and the OpenAPI schema at `/openapi.json`. The model loads once during
+startup; the first launch downloads weights if they are not cached. Use one worker
+to keep one model instance in memory.
+
+| Endpoint | Input | Output |
+| --- | --- | --- |
+| `GET /health` | None | Server status and device after model loading |
+| `POST /infer/paths` | JSON with server-side image paths/directories | Descriptors and optional reference ranking |
+| `POST /infer/upload` | Multipart image files and form parameters | Descriptors and optional reference ranking |
+
+Upload an image from any client:
+
+```bash
+curl http://127.0.0.1:8000/infer/upload \
+  -F 'images=@/path/to/image.jpg' \
+  -F 'height=322' -F 'width=322' \
+  -F 'include_descriptors=true'
+```
+
+Repeat `-F 'images=@...'` for multiple query images. Add one or more
+`-F 'references=@...'` fields to rank reference images, with `-F 'top_k=5'`.
+Uploads are processed from temporary streams, without permanent image files.
+
+For files already on the server:
+
+```bash
+curl http://127.0.0.1:8000/infer/paths \
+  -H 'Content-Type: application/json' \
+  -d '{"images": ["/path/to/image.jpg"], "references": ["/path/to/database"], "recursive": true, "batch_size": 1, "top_k": 5, "include_descriptors": false}'
+```
+
+Both endpoints accept `height` and `width` (default 322, multiples of 14, maximum
+1400), `batch_size` (1–64, default 1), `top_k` (1–1000, default 5), and
+`include_descriptors` (default true). Responses contain `device`, `size`, and
+`images`; each image has `path` (filename for uploads), `dimension`, `norm`, an
+optional `descriptor`, and `matches` when references are supplied. Each match
+contains `path` and `cosine_similarity`. Set `include_descriptors=false` for smaller
+responses. The API returns JSON directly; save it client-side if needed.
+
+Unlike per-request image options, device and weight settings apply to the entire
+server and are configured before startup through environment variables:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MEGALOC_DEVICE` | `auto` | `cpu`, `cuda`, `cuda:0`, `mps`, or automatic selection |
+| `MEGALOC_WEIGHTS` | Hugging Face download/cache | Local `.safetensors` checkpoint |
+| `MEGALOC_CACHE_DIR` | Hugging Face default | Weight cache directory |
+| `MEGALOC_OFFLINE` | `0` | `1` to require cached/local weights |
+| `MEGALOC_THREADS` | PyTorch default | Positive number of CPU threads |
+
+For example:
+
+```bash
+MEGALOC_DEVICE=cpu MEGALOC_THREADS=4 python -m uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Invalid inputs or unreadable images return HTTP 422. Insufficient model memory
+returns HTTP 503; reduce image size or batch size. Model execution is serialized
+across concurrent requests. This local API has no authentication; `/infer/paths`
+reads paths accessible to the server process.
+
+The uploads follow the [FastAPI file/form conventions](https://fastapi.tiangolo.com/tutorial/request-files/).
+
 ### FAQ
 
 **How do I reproduce the paper's results?** With [VPR-methods-evaluation](https://github.com/gmberton/VPR-methods-evaluation) and the datasets from [VPR-datasets-downloader](https://github.com/gmberton/VPR-datasets-downloader), which has the exact splits we used ([#13](https://github.com/gmberton/MegaLoc/issues/13)).
