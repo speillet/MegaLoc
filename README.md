@@ -164,6 +164,48 @@ to compare images, or `--mode paths` to send server-side paths instead of files.
 mode. The script checks `/health`, prints a compact result, and exits with a nonzero
 code on connection or HTTP errors. See `python test_api_client.py --help`.
 
+### Docker
+
+Build and run the API on CPU:
+
+```bash
+docker build -t megaloc-api .
+docker run --rm --name megaloc-api \
+  -p 127.0.0.1:8000:8000 \
+  -v megaloc-hf-cache:/home/megaloc/.cache/huggingface \
+  megaloc-api
+```
+
+Swagger is available at **http://127.0.0.1:8000/docs** once the model has loaded.
+The first launch downloads the weights. The named volume preserves them across
+container restarts; weights are not embedded in the image. The image installs
+CPU wheels from the [official PyTorch index](https://docs.pytorch.org/get-started/previous-versions/).
+The container runs as UID 10001 with one Uvicorn worker and a `/health` health check.
+
+Test it from another terminal with a file on the host:
+
+```bash
+python test_api_client.py /path/to/image.jpg --output response.json
+```
+
+Uploads work without mounting image directories. For `/infer/paths`, mount your
+data read-only and use the paths **inside the container**, such as `/data/image.jpg`:
+
+```bash
+docker run --rm --name megaloc-api \
+  -p 127.0.0.1:8000:8000 \
+  -v megaloc-hf-cache:/home/megaloc/.cache/huggingface \
+  -v /home/SPeillet/projects/sevilla/data:/data:ro \
+  -e MEGALOC_THREADS=4 \
+  megaloc-api
+```
+
+The mounted files must be readable by UID 10001. Pass API settings with `-e`, for
+example `-e MEGALOC_OFFLINE=1` after the weights have been cached. Local weights can
+also be mounted read-only and selected with `-e MEGALOC_WEIGHTS=/weights/model.safetensors`.
+The `.dockerignore` excludes the Python environment, Git history, and local outputs.
+For Docker run options, see the [official reference](https://docs.docker.com/engine/containers/run/).
+
 ### FAQ
 
 **How do I reproduce the paper's results?** With [VPR-methods-evaluation](https://github.com/gmberton/VPR-methods-evaluation) and the datasets from [VPR-datasets-downloader](https://github.com/gmberton/VPR-datasets-downloader), which has the exact splits we used ([#13](https://github.com/gmberton/MegaLoc/issues/13)).
