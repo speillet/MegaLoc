@@ -127,3 +127,38 @@ def test_client_local_bypasses_proxy_remote_uses_it(servers, tmp_path, remote):
     assert json.loads(output.read_text())["images"][0]["dimension"] == 8448
     assert len(proxy_calls if remote else api_calls) == 2
     assert (api_calls if remote else proxy_calls) == []
+
+
+@pytest.mark.parametrize("url", ["ftp://example.invalid", "http://[", "localhost:8085"])
+def test_client_invalid_url_is_reported_without_traceback(tmp_path, url):
+    image = tmp_path / "image.jpg"
+    image.write_bytes(b"test image bytes")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "test_api.py"), str(image), "--url", url],
+        env=proxy_environment("http://127.0.0.1:9"),
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 2
+    assert "--url doit être" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_client_missing_image_does_not_contact_api(servers, tmp_path):
+    api, calls = servers()
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "test_api.py"),
+            str(tmp_path / "missing.jpg"),
+            "--url",
+            api,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 2
+    assert "Image introuvable" in result.stderr
+    assert calls == []

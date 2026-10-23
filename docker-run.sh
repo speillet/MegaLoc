@@ -26,7 +26,7 @@ EOF
 }
 
 die() { echo "Erreur : $*" >&2; exit 1; }
-need_value() { [[ $# -ge 2 && -n "$2" ]] || die "Valeur manquante pour $1"; }
+need_value() { [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || die "Valeur manquante pour $1"; }
 
 image="megaloc-api:latest"
 name="megaloc-api"

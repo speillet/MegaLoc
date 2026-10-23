@@ -97,3 +97,20 @@ def test_run_exposes_gpus_and_preserves_port(docker_command, options, spec):
     assert result.returncode == 0, result.stderr
     assert args[args.index("--gpus") + 1] == spec
     assert args[args.index("--publish") + 1] == "127.0.0.1:8085:8000"
+
+
+@pytest.mark.parametrize(
+    "script,options",
+    [
+        ("docker-build.sh", ["--image"]),
+        ("docker-build.sh", ["--image", "--no-cache"]),
+        ("docker-run.sh", ["--port"]),
+        ("docker-run.sh", ["--port", "--detach"]),
+        ("docker-run.sh", ["--gpus", "--detach"]),
+    ],
+)
+def test_missing_option_value_does_not_invoke_docker(docker_command, script, options):
+    result, args = docker_command(script, *options)
+    assert result.returncode != 0
+    assert "Valeur manquante" in result.stderr
+    assert args == []

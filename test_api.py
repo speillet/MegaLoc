@@ -63,6 +63,18 @@ def main():
         parser.error("batch-size : 1–64 ; top-k : 1–1000 ; timeout : positif.")
     if args.recursive and args.mode != "paths":
         parser.error("--recursive nécessite --mode paths.")
+    try:
+        # Reject malformed IPv6 brackets before HTTPX normalizes the hostname.
+        urlsplit(args.url)
+        base_url = httpx.URL(args.url)
+    except (httpx.InvalidURL, ValueError):
+        parser.error("--url doit être une URL HTTP(S) valide.")
+    if base_url.scheme not in {"http", "https"} or not base_url.host:
+        parser.error("--url doit être une URL HTTP(S) valide avec un nom d'hôte.")
+    if args.mode == "upload":
+        for path in (*args.images, *args.references):
+            if not Path(path).is_file():
+                parser.error(f"Image introuvable ou illisible : {path}")
     options = {
         "height": args.size[0],
         "width": args.size[1],
@@ -71,7 +83,7 @@ def main():
         "include_descriptors": args.include_descriptors,
     }
     try:
-        host = (urlsplit(args.url).hostname or "").lower().rstrip(".")
+        host = base_url.host.lower().rstrip(".")
         try:
             local_api = ip_address(host).is_loopback
         except ValueError:

@@ -17,7 +17,7 @@ EOF
 }
 
 die() { echo "Erreur : $*" >&2; exit 1; }
-need_value() { [[ $# -ge 2 && -n "$2" ]] || die "Valeur manquante pour $1"; }
+need_value() { [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || die "Valeur manquante pour $1"; }
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 image="megaloc-api:latest"
