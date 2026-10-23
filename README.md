@@ -110,9 +110,13 @@ container named `megaloc-api` before launching another one. Use `--help` on each
 Docker script for image, cache, CPU thread, offline and other options.
 
 The build and run scripts forward exported proxy variables. The Dockerfile
-normalizes uppercase/lowercase names for APT and pip without storing proxy values
+normalizes uppercase/lowercase names for APT and uv without storing proxy values
 in the image. The health check bypasses proxies when calling the local API.
 When using `sudo`, preserve the proxy environment according to your system policy.
+The Dockerfile copies the pinned `uv` binary from its official image and installs
+dependencies with `uv pip install --system`, using a BuildKit cache for downloads.
+Python and PyTorch remain provided by the Python base image and the selected
+PyTorch package index. See the [uv Docker guide](https://docs.astral.sh/uv/guides/integration/docker/).
 
 ### Test the API with an image
 

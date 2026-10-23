@@ -1,18 +1,21 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim-bookworm
 
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /usr/local/bin/uv
+
 ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_LINK_MODE=copy \
     HF_HOME=/home/megaloc/.cache/huggingface \
     MEGALOC_DEVICE=auto
 
 WORKDIR /app
 
 # Docker supplies predefined proxy variables through --build-arg. Normalize
-# their case for APT and pip, and reuse the HTTP proxy for HTTPS if needed.
+# their case for APT and uv, and reuse the HTTP proxy for HTTPS if needed.
 # Keep this scoped to RUN so proxy settings are not persisted with ENV.
 RUN export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
            https_proxy="${https_proxy:-${HTTPS_PROXY:-${http_proxy:-${HTTP_PROXY:-}}}}" \
@@ -26,11 +29,12 @@ RUN export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
     && chown -R megaloc:megaloc /home/megaloc/.cache
 
 COPY requirements.txt ./
-RUN export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
            https_proxy="${https_proxy:-${HTTPS_PROXY:-${http_proxy:-${HTTP_PROXY:-}}}}" \
            no_proxy="${no_proxy:-${NO_PROXY:-}}" \
-    && python -m pip install torch torchvision --index-url "${TORCH_INDEX_URL}" \
-    && python -m pip install -r requirements.txt
+    && uv pip install --system torch torchvision --default-index "${TORCH_INDEX_URL}" \
+    && uv pip install --system -r requirements.txt
 
 COPY api.py inference.py megaloc_model.py cli_pipeline.py ./
 
