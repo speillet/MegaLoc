@@ -147,3 +147,41 @@ def test_invalid_cuda_index_fails_before_loading_weights(monkeypatch):
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
     with pytest.raises(ValueError, match="GPU cuda:1 indisponible"):
         inference.InferenceEngine(device="cuda:1")
+
+
+@pytest.mark.parametrize("height,width", [(14, 14), (112, 112)])
+def test_small_images_rejected_before_inference(client, monkeypatch, height, width):
+    def unexpected_inference(*args, **kwargs):
+        pytest.fail("Le modèle ne doit pas être appelé pour une taille invalide.")
+
+    monkeypatch.setattr(api.app.state.engine, "extract", unexpected_inference)
+    path_response = client.post(
+        "/infer/paths",
+        json={
+            "images": ["unused.jpg"],
+            "height": height,
+            "width": width,
+        },
+    )
+    upload_response = client.post(
+        "/infer/upload",
+        files={
+            "images": ("image.png", image_bytes("red")),
+        },
+        data={"height": height, "width": width},
+    )
+    assert path_response.status_code == upload_response.status_code == 422
+    assert "plus de 64 patches" in path_response.text
+    assert "plus de 64 patches" in upload_response.text
+
+
+def test_small_valid_image_size(client):
+    response = client.post(
+        "/infer/upload",
+        files={
+            "images": ("image.png", image_bytes("red")),
+        },
+        data={"height": 126, "width": 112},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["size"] == [126, 112]

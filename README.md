@@ -76,7 +76,10 @@ If `uv` is not installed, follow the
 [official installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
 
 Inference applies EXIF orientation, RGB conversion, ImageNet normalization and a
-322×322 resize. `--size HEIGHT WIDTH` accepts multiples of 14. Other options include
+322×322 resize. `--size HEIGHT WIDTH` accepts multiples of 14; the input must
+contain more than 64 patches of 14×14 pixels for the pretrained aggregator
+(112×112 is too small; 126×112 is valid). The CLI and API validate this before
+inference. Other options include
 `--device`, `--batch-size`, `--threads`, `--weights`, `--cache-dir`, `--offline`, and
 `--json-output`. Weights are downloaded from Hugging Face on first use.
 Descriptors have 8448 dimensions and L2 norm 1. Similarity scores are cosine

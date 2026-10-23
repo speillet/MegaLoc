@@ -81,12 +81,19 @@ def build_parser():
 def main():
     parser = build_parser()
     args = parser.parse_args()
-    if any(size % 14 for size in args.size):
-        parser.error("--size attend une hauteur et une largeur multiples de 14.")
-
     import torch
 
-    from inference import InferenceEngine, collect_images, make_report
+    from inference import (
+        InferenceEngine,
+        collect_images,
+        make_report,
+        validate_image_size,
+    )
+
+    try:
+        validate_image_size(args.size)
+    except ValueError as error:
+        parser.error(str(error))
 
     try:
         queries = collect_images(args.images, args.recursive)

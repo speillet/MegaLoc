@@ -7,9 +7,9 @@ from typing import Annotated, Literal
 
 import torch
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
-from inference import InferenceEngine, collect_images, make_report
+from inference import InferenceEngine, collect_images, make_report, validate_image_size
 
 
 class Options(BaseModel):
@@ -21,12 +21,10 @@ class Options(BaseModel):
         True, description="Inclure les vecteurs dans la réponse JSON."
     )
 
-    @field_validator("height", "width")
-    @classmethod
-    def patch_multiple(cls, value):
-        if value % 14:
-            raise ValueError("La taille doit être un multiple de 14.")
-        return value
+    @model_validator(mode="after")
+    def valid_image_size(self):
+        validate_image_size((self.height, self.width))
+        return self
 
 
 class PathRequest(Options):
@@ -169,15 +167,16 @@ def infer_upload(
     ] = "true",
 ):
     """Multipart : fichiers et paramètres de prétraitement, directement testables dans Swagger."""
-    if height % 14 or width % 14:
-        raise HTTPException(422, "height et width doivent être des multiples de 14.")
-    options = Options(
-        height=height,
-        width=width,
-        batch_size=batch_size,
-        top_k=top_k,
-        include_descriptors=include_descriptors == "true",
-    )
+    try:
+        options = Options(
+            height=height,
+            width=width,
+            batch_size=batch_size,
+            top_k=top_k,
+            include_descriptors=include_descriptors == "true",
+        )
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
     references = references or []
     return infer(
         [image.file for image in images],

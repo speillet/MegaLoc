@@ -1,5 +1,6 @@
 """Shared preprocessing and inference for the CLI and HTTP API."""
 
+from collections.abc import Sequence
 from pathlib import Path
 from threading import Lock
 
@@ -11,6 +12,19 @@ from torchvision import transforms
 from megaloc_model import MegaLoc
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+
+
+def validate_image_size(size: Sequence[int]) -> None:
+    """Validate input dimensions for the pretrained model's 64 clusters."""
+    if len(size) != 2 or any(dimension < 14 or dimension % 14 for dimension in size):
+        raise ValueError(
+            "La hauteur et la largeur doivent être des multiples positifs de 14."
+        )
+    if (size[0] // 14) * (size[1] // 14) <= 64:
+        raise ValueError(
+            "Image trop petite : il faut plus de 64 patches de 14×14 pixels "
+            "pour l'agrégateur MegaLoc. Utiliser par exemple 322×322."
+        )
 
 
 def collect_images(inputs, recursive=False):
@@ -80,10 +94,9 @@ class InferenceEngine:
 
     def extract(self, sources, size=(322, 322), batch_size=1):
         """Sources are paths or seekable binary streams; returns CPU descriptors."""
-        if batch_size < 1 or len(size) != 2 or any(s < 14 or s % 14 for s in size):
-            raise ValueError(
-                "Taille : deux multiples positifs de 14 ; batch_size : entier positif."
-            )
+        validate_image_size(size)
+        if batch_size < 1:
+            raise ValueError("batch_size doit être un entier positif.")
         if not sources:
             raise ValueError("Au moins une image est requise.")
         transform = transforms.Compose(
