@@ -60,19 +60,19 @@ regression tests live in `tests/`.
 Requires Python 3.10 or newer:
 
 ```bash
-uv venv --python 3.12 --managed-python ~/.local/share/uv/venvs/megaloc
-uv pip install --python ~/.local/share/uv/venvs/megaloc/bin/python -r requirements.txt
-source ~/.local/share/uv/venvs/megaloc/bin/activate
+uv venv --python 3.12 --managed-python .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+source .venv/bin/activate
 
 python cli_pipeline.py image.jpg --output outputs/descriptor.pt
 python cli_pipeline.py image.jpg --references ./database --recursive --top-k 5
 python cli_pipeline.py --help
 ```
 
-The environment is managed by `uv` and stored outside the repository, so no Conda
-activation or `.venv` directory is needed. In fish, activate it with
-`source ~/.local/share/uv/venvs/megaloc/bin/activate.fish`. Run `deactivate` to leave
-the environment. If `uv` is not installed, follow the
+The environment is managed by `uv` in the repository's `.venv/` directory, which
+is excluded from Git and the Docker build context. In fish, activate it with
+`source .venv/bin/activate.fish`. Run `deactivate` to leave the environment.
+If `uv` is not installed, follow the
 [official installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
 
 Inference applies EXIF orientation, RGB conversion, ImageNet normalization and a
@@ -167,7 +167,7 @@ insufficient model memory returns HTTP 503.
 Tests use a small replacement model and require no weight download:
 
 ```bash
-uv pip install --python ~/.local/share/uv/venvs/megaloc/bin/python -r requirements-dev.txt
+uv pip install --python .venv/bin/python -r requirements-dev.txt
 python -m pytest -q
 ```
 
