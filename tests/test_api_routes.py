@@ -92,3 +92,18 @@ def test_out_of_memory_returns_503(client, monkeypatch):
     monkeypatch.setattr(api.app.state.engine, "extract", fail)
     response = client.post("/infer/upload", files={"images": ("image.png", image_bytes("red"))})
     assert response.status_code == 503
+
+
+def test_cuda_startup_fails_before_loading_weights_without_gpu(monkeypatch):
+    monkeypatch.setenv("MEGALOC_DEVICE", "cuda")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    with pytest.raises(RuntimeError, match="CUDA demandé mais inaccessible"):
+        with TestClient(api.app):
+            pass
+
+
+def test_invalid_cuda_index_fails_before_loading_weights(monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    with pytest.raises(ValueError, match="GPU cuda:1 indisponible"):
+        inference.InferenceEngine(device="cuda:1")

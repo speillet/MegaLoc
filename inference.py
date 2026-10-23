@@ -41,6 +41,14 @@ class InferenceEngine:
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         self.device = torch.device(device)
+        if self.device.type == "cuda":
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "CUDA demandé mais inaccessible. Vérifier PyTorch avec CUDA, le pilote NVIDIA "
+                    "et, dans Docker, NVIDIA Container Toolkit avec l'option --gpus."
+                )
+            if self.device.index is not None and self.device.index >= torch.cuda.device_count():
+                raise ValueError(f"GPU {self.device} indisponible parmi les GPU visibles.")
         if weights is None:
             from huggingface_hub import hf_hub_download
             weights = hf_hub_download(
