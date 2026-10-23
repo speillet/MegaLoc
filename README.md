@@ -224,6 +224,8 @@ Tests use a small replacement model and require no weight download:
 
 ```bash
 uv pip install --python .venv/bin/python -r requirements-dev.txt
+ruff check --select E4,E7,E9,F,I inference.py cli_pipeline.py api.py test_api.py tests
+ruff format --check inference.py cli_pipeline.py api.py test_api.py tests
 python -m pytest -q
 ```
 

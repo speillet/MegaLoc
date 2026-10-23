@@ -2,16 +2,23 @@
 
 import json
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 PROXY_KEYS = (
-    "HTTP_PROXY", "HTTPS_PROXY", "FTP_PROXY", "ALL_PROXY", "NO_PROXY",
-    "http_proxy", "https_proxy", "ftp_proxy", "all_proxy", "no_proxy",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "FTP_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "ftp_proxy",
+    "all_proxy",
+    "no_proxy",
 )
 
 
@@ -27,15 +34,22 @@ def docker_command(tmp_path):
     )
     docker.chmod(0o755)
     env = {key: value for key, value in os.environ.items() if key not in PROXY_KEYS}
-    env.update(PATH=str(tmp_path) + os.pathsep + env["PATH"], DOCKER_TEST_COMMAND=str(log))
-    env.update(http_proxy="http://user:dummy-password@proxy.example:3128",
-               https_proxy="http://user:dummy-password@proxy.example:3128",
-               NO_PROXY="localhost,127.0.0.1")
+    env.update(
+        PATH=str(tmp_path) + os.pathsep + env["PATH"], DOCKER_TEST_COMMAND=str(log)
+    )
+    env.update(
+        http_proxy="http://user:dummy-password@proxy.example:3128",
+        https_proxy="http://user:dummy-password@proxy.example:3128",
+        NO_PROXY="localhost,127.0.0.1",
+    )
 
     def run(script, *options):
         result = subprocess.run(
             ["bash", str(ROOT / script), *options],
-            cwd=tmp_path, env=env, capture_output=True, text=True,
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
         )
         args = json.loads(log.read_text()) if log.exists() else []
         return result, args
@@ -43,12 +57,14 @@ def docker_command(tmp_path):
     return run
 
 
-@pytest.mark.parametrize("script,flag", [("docker-build.sh", "--build-arg"), ("docker-run.sh", "--env")])
+@pytest.mark.parametrize(
+    "script,flag", [("docker-build.sh", "--build-arg"), ("docker-run.sh", "--env")]
+)
 def test_proxy_is_forwarded_without_values_in_command(docker_command, script, flag):
     result, args = docker_command(script)
     assert result.returncode == 0, result.stderr
     for key in ("http_proxy", "https_proxy", "NO_PROXY"):
-        assert any(args[i:i + 2] == [flag, key] for i in range(len(args) - 1))
+        assert any(args[i : i + 2] == [flag, key] for i in range(len(args) - 1))
     assert not any("dummy-password" in value for value in args)
     assert "dummy-password" not in result.stdout + result.stderr
 
@@ -73,7 +89,9 @@ def test_invalid_network(docker_command):
     assert args == []
 
 
-@pytest.mark.parametrize("options,spec", [([], "all"), (["--gpus", "device=0"], "device=0")])
+@pytest.mark.parametrize(
+    "options,spec", [([], "all"), (["--gpus", "device=0"], "device=0")]
+)
 def test_run_exposes_gpus_and_preserves_port(docker_command, options, spec):
     result, args = docker_command("docker-run.sh", "--port", "8085", *options)
     assert result.returncode == 0, result.stderr
