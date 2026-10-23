@@ -60,14 +60,20 @@ regression tests live in `tests/`.
 Requires Python 3.10 or newer:
 
 ```bash
-conda create -n megaloc python=3.12 pip -y
-conda activate megaloc
-python -m pip install -r requirements.txt
+uv venv --python 3.12 --managed-python ~/.local/share/uv/venvs/megaloc
+uv pip install --python ~/.local/share/uv/venvs/megaloc/bin/python -r requirements.txt
+source ~/.local/share/uv/venvs/megaloc/bin/activate
 
 python cli_pipeline.py image.jpg --output outputs/descriptor.pt
 python cli_pipeline.py image.jpg --references ./database --recursive --top-k 5
 python cli_pipeline.py --help
 ```
+
+The environment is managed by `uv` and stored outside the repository, so no Conda
+activation or `.venv` directory is needed. In fish, activate it with
+`source ~/.local/share/uv/venvs/megaloc/bin/activate.fish`. Run `deactivate` to leave
+the environment. If `uv` is not installed, follow the
+[official installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
 
 Inference applies EXIF orientation, RGB conversion, ImageNet normalization and a
 322×322 resize. `--size HEIGHT WIDTH` accepts multiples of 14. Other options include
@@ -157,7 +163,7 @@ insufficient model memory returns HTTP 503.
 Tests use a small replacement model and require no weight download:
 
 ```bash
-python -m pip install -r requirements-dev.txt
+uv pip install --python ~/.local/share/uv/venvs/megaloc/bin/python -r requirements-dev.txt
 python -m pytest -q
 ```
 
