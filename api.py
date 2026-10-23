@@ -9,8 +9,7 @@ import torch
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field, field_validator
 
-from inference import InferenceEngine, make_report
-from test_megaloc import collect_images
+from inference import InferenceEngine, collect_images, make_report
 
 
 class Options(BaseModel):

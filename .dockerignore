@@ -7,4 +7,6 @@
 *.pt
 *.safetensors
 resultat.json
+resultat_api.json
+outputs
 tests

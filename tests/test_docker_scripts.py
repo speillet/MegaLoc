@@ -34,7 +34,7 @@ def docker_command(tmp_path):
 
     def run(script, *options):
         result = subprocess.run(
-            ["bash", str(ROOT / "scripts" / script), *options],
+            ["bash", str(ROOT / script), *options],
             cwd=tmp_path, env=env, capture_output=True, text=True,
         )
         args = json.loads(log.read_text()) if log.exists() else []
@@ -43,7 +43,7 @@ def docker_command(tmp_path):
     return run
 
 
-@pytest.mark.parametrize("script,flag", [("build_docker.sh", "--build-arg"), ("run_docker.sh", "--env")])
+@pytest.mark.parametrize("script,flag", [("docker-build.sh", "--build-arg"), ("docker-run.sh", "--env")])
 def test_proxy_is_forwarded_without_values_in_command(docker_command, script, flag):
     result, args = docker_command(script)
     assert result.returncode == 0, result.stderr
@@ -53,7 +53,7 @@ def test_proxy_is_forwarded_without_values_in_command(docker_command, script, fl
     assert "dummy-password" not in result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("script", ["build_docker.sh", "run_docker.sh"])
+@pytest.mark.parametrize("script", ["docker-build.sh", "docker-run.sh"])
 def test_proxy_forwarding_can_be_disabled(docker_command, script):
     result, args = docker_command(script, "--no-proxy")
     assert result.returncode == 0, result.stderr
@@ -61,13 +61,13 @@ def test_proxy_forwarding_can_be_disabled(docker_command, script):
 
 
 def test_host_build_network_and_repository_context(docker_command):
-    result, args = docker_command("build_docker.sh", "--network", "host")
+    result, args = docker_command("docker-build.sh", "--network", "host")
     assert result.returncode == 0, result.stderr
     assert args[args.index("--network") + 1] == "host"
     assert args[-1] == str(ROOT)
 
 
 def test_invalid_network(docker_command):
-    result, args = docker_command("build_docker.sh", "--network", "invalid")
+    result, args = docker_command("docker-build.sh", "--network", "invalid")
     assert result.returncode != 0
     assert args == []

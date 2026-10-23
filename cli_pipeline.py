@@ -5,9 +5,6 @@ import json
 from pathlib import Path
 
 
-EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
-
-
 def positive_int(value):
     value = int(value)
     if value < 1:
@@ -33,22 +30,6 @@ def build_parser():
     return parser
 
 
-def collect_images(inputs, recursive):
-    paths = []
-    for path in inputs:
-        if path.is_dir():
-            found = sorted(p for p in (path.rglob("*") if recursive else path.iterdir())
-                           if p.is_file() and p.suffix.lower() in EXTENSIONS)
-            if not found:
-                raise ValueError(f"Aucune image dans {path}")
-            paths.extend(found)
-        elif path.is_file():
-            paths.append(path)
-        else:
-            raise ValueError(f"Chemin introuvable : {path}")
-    return list(dict.fromkeys(str(p.resolve()) for p in paths))
-
-
 def main():
     parser = build_parser()
     args = parser.parse_args()
@@ -56,7 +37,7 @@ def main():
         parser.error("--size attend une hauteur et une largeur multiples de 14.")
 
     import torch
-    from inference import InferenceEngine
+    from inference import InferenceEngine, collect_images, make_report
 
     try:
         queries = collect_images(args.images, args.recursive)
@@ -69,21 +50,13 @@ def main():
         print(f"Modèle chargé sur {device}", flush=True)
         descriptors = engine.extract(queries, args.size, args.batch_size)
         reference_descriptors = engine.extract(references, args.size, args.batch_size) if references else None
-        report = {"device": str(device), "size": args.size, "images": []}
-        for index, path in enumerate(queries):
-            norm = descriptors[index].norm().item()
-            entry = {"path": path, "dimension": descriptors.shape[1], "norm": norm}
-            print(f"{path} : dimension={descriptors.shape[1]}, norme={norm:.6f}")
-            if reference_descriptors is not None:
-                scores = reference_descriptors @ descriptors[index]
-                values, indices = scores.topk(min(args.top_k, len(references)))
-                entry["matches"] = [
-                    {"path": references[i], "cosine_similarity": score}
-                    for score, i in zip(values.tolist(), indices.tolist())
-                ]
-                for rank, match in enumerate(entry["matches"], 1):
-                    print(f"  {rank}. {match['cosine_similarity']:.4f}  {match['path']}")
-            report["images"].append(entry)
+        report = make_report(queries, descriptors, references, reference_descriptors,
+                             device=device, size=args.size, top_k=args.top_k,
+                             include_descriptors=False)
+        for entry in report["images"]:
+            print(f"{entry['path']} : dimension={entry['dimension']}, norme={entry['norm']:.6f}")
+            for rank, match in enumerate(entry.get("matches", []), 1):
+                print(f"  {rank}. {match['cosine_similarity']:.4f}  {match['path']}")
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             torch.save({"paths": queries, "descriptors": descriptors,

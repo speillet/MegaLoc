@@ -6,3 +6,5 @@ __pycache__/
 # Local inference outputs
 /descriptor.pt
 /resultat.json
+/resultat_api.json
+/outputs/

@@ -11,6 +11,27 @@ from torchvision import transforms
 from megaloc_model import MegaLoc
 
 
+EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+
+
+def collect_images(inputs, recursive=False):
+    """Resolve image files and directories, preserving order without duplicates."""
+    paths = []
+    for item in inputs:
+        path = Path(item)
+        if path.is_dir():
+            found = sorted(p for p in (path.rglob("*") if recursive else path.iterdir())
+                           if p.is_file() and p.suffix.lower() in EXTENSIONS)
+            if not found:
+                raise ValueError(f"Aucune image dans {path}")
+            paths.extend(found)
+        elif path.is_file():
+            paths.append(path)
+        else:
+            raise ValueError(f"Chemin introuvable : {path}")
+    return list(dict.fromkeys(str(p.resolve()) for p in paths))
+
+
 class InferenceEngine:
     def __init__(self, device="auto", weights=None, cache_dir=None, offline=False, threads=None):
         if threads is not None:

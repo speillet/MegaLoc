@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: run_docker.sh [options]
+Usage: docker-run.sh [options]
 Lance l'API et conserve les poids dans un volume Docker nommé.
 
   --image NAME       Image à lancer (défaut : megaloc-api:latest)

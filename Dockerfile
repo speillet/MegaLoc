@@ -25,14 +25,14 @@ RUN export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
     && mkdir -p /home/megaloc/.cache/huggingface \
     && chown -R megaloc:megaloc /home/megaloc/.cache
 
-COPY requirements-api.txt ./
+COPY requirements.txt ./
 RUN export http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
            https_proxy="${https_proxy:-${HTTPS_PROXY:-${http_proxy:-${HTTP_PROXY:-}}}}" \
            no_proxy="${no_proxy:-${NO_PROXY:-}}" \
     && python -m pip install torch torchvision --index-url "${TORCH_INDEX_URL}" \
-    && python -m pip install -r requirements-api.txt
+    && python -m pip install -r requirements.txt
 
-COPY api.py inference.py megaloc_model.py test_megaloc.py ./
+COPY api.py inference.py megaloc_model.py cli_pipeline.py ./
 
 USER megaloc
 EXPOSE 8000

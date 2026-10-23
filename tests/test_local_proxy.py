@@ -90,7 +90,7 @@ def test_client_local_bypasses_proxy_remote_uses_it(servers, tmp_path, remote):
     image.write_bytes(b"test image bytes")
     output = tmp_path / "response.json"
     result = subprocess.run([
-        sys.executable, str(ROOT / "test_api_client.py"), str(image),
+        sys.executable, str(ROOT / "test_api.py"), str(image),
         "--url", url, "--output", str(output), "--timeout", "5",
     ], env=proxy_environment(proxy), capture_output=True, text=True, timeout=15)
     assert result.returncode == 0, result.stderr

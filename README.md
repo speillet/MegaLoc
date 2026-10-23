@@ -37,245 +37,129 @@ similarities = descriptors @ descriptors.T  # cosine similarities
 
 For more complex uses, like computing results on VPR datasets, visualizing predictions and so on, you can use our [VPR-methods-evaluation](https://github.com/gmberton/VPR-methods-evaluation), which lets you do all this for MegaLoc and multiple other VPR methods on labelled or unlabelled datasets.
 
-### Local command line
+### Inference, CLI and API
 
-Run from this repository with the Python environment activated:
+The entry points follow the same layout as the PLONK project:
+
+| File | Role |
+| --- | --- |
+| `inference.py` | Load the model, discover images, preprocess inputs, extract descriptors and rank references |
+| `cli_pipeline.py` | Run inference locally from the command line |
+| `api.py` | FastAPI endpoints and Swagger documentation |
+| `Dockerfile` | Build the API runtime image |
+| `docker-build.sh` | Build the Docker image |
+| `docker-run.sh` | Run the API container |
+| `test_api.py` | Send images to a running API |
+
+`megaloc_model.py` contains the required model architecture. `hubconf.py` preserves
+PyTorch Hub support. Runtime dependencies are in `requirements.txt`; automated
+regression tests live in `tests/`.
+
+### Installation and local inference
+
+Requires Python 3.10 or newer:
 
 ```bash
-# Extract and save one image descriptor
-python test_megaloc.py image.jpg --output descriptor.pt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 
-# Rank reference images for each query image
-python test_megaloc.py image.jpg --references ./database --recursive --top-k 5 --json-output matches.json
-
-# Process a directory in batches
-python test_megaloc.py ./images --device cuda --batch-size 4 --output descriptors.pt
-
-python test_megaloc.py --help
+python cli_pipeline.py image.jpg --output outputs/descriptor.pt
+python cli_pipeline.py image.jpg --references ./database --recursive --top-k 5
+python cli_pipeline.py --help
 ```
 
-The default preprocessing matches the example above (ImageNet normalization and
-322×322 resize); EXIF orientation is applied before conversion to RGB. Custom
-`--size HEIGHT WIDTH` values must be multiples of 14. Device selection is automatic
-(CUDA, MPS, then CPU); `--threads` controls CPU threading. Pretrained architecture
-dimensions are fixed to match the weights.
+Inference applies EXIF orientation, RGB conversion, ImageNet normalization and a
+322×322 resize. `--size HEIGHT WIDTH` accepts multiples of 14. Other options include
+`--device`, `--batch-size`, `--threads`, `--weights`, `--cache-dir`, `--offline`, and
+`--json-output`. Weights are downloaded from Hugging Face on first use.
+Descriptors have 8448 dimensions and L2 norm 1. Similarity scores are cosine
+similarities, not probabilities; MegaLoc does not directly predict GPS coordinates.
 
-Weights are downloaded from Hugging Face on first use. Use `--cache-dir` for a
-custom cache, `--offline` to require cached weights, or `--weights model.safetensors`
-for a local checkpoint. The `.pt` output contains image paths, CPU descriptors,
-reference descriptors when supplied, and preprocessing metadata. The JSON report
-contains descriptor norms and top reference matches with cosine similarities
-(higher means more similar, not a probability). MegaLoc does not return GPS
-coordinates directly. Matching images present in both inputs can match themselves.
+### Docker API
 
-### HTTP API (FastAPI + Swagger)
-
-Requires Python 3.10 or newer. From the repository, activate your environment and run:
+From the repository root:
 
 ```bash
-python -m pip install -r requirements-api.txt
-python -m uvicorn api:app --host 127.0.0.1 --port 8000
-```
-
-Open **http://127.0.0.1:8000/docs** for interactive Swagger documentation: expand
-an endpoint, click **Try it out**, supply inputs, then **Execute**. ReDoc is at
-`/redoc` and the OpenAPI schema at `/openapi.json`. The model loads once during
-startup; the first launch downloads weights if they are not cached. Use one worker
-to keep one model instance in memory.
-
-| Endpoint | Input | Output |
-| --- | --- | --- |
-| `GET /health` | None | Server status and device after model loading |
-| `POST /infer/paths` | JSON with server-side image paths/directories | Descriptors and optional reference ranking |
-| `POST /infer/upload` | Multipart image files and form parameters | Descriptors and optional reference ranking |
-
-Upload an image from any client:
-
-```bash
-curl http://127.0.0.1:8000/infer/upload \
-  -F 'images=@/path/to/image.jpg' \
-  -F 'height=322' -F 'width=322' \
-  -F 'include_descriptors=true'
-```
-
-Repeat `-F 'images=@...'` for multiple query images. Add one or more
-`-F 'references=@...'` fields to rank reference images, with `-F 'top_k=5'`.
-Uploads are processed from temporary streams, without permanent image files.
-
-For files already on the server:
-
-```bash
-curl http://127.0.0.1:8000/infer/paths \
-  -H 'Content-Type: application/json' \
-  -d '{"images": ["/path/to/image.jpg"], "references": ["/path/to/database"], "recursive": true, "batch_size": 1, "top_k": 5, "include_descriptors": false}'
-```
-
-Both endpoints accept `height` and `width` (default 322, multiples of 14, maximum
-1400), `batch_size` (1–64, default 1), `top_k` (1–1000, default 5), and
-`include_descriptors` (default true). Responses contain `device`, `size`, and
-`images`; each image has `path` (filename for uploads), `dimension`, `norm`, an
-optional `descriptor`, and `matches` when references are supplied. Each match
-contains `path` and `cosine_similarity`. Set `include_descriptors=false` for smaller
-responses. The API returns JSON directly; save it client-side if needed.
-
-Unlike per-request image options, device and weight settings apply to the entire
-server and are configured before startup through environment variables:
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `MEGALOC_DEVICE` | `auto` | `cpu`, `cuda`, `cuda:0`, `mps`, or automatic selection |
-| `MEGALOC_WEIGHTS` | Hugging Face download/cache | Local `.safetensors` checkpoint |
-| `MEGALOC_CACHE_DIR` | Hugging Face default | Weight cache directory |
-| `MEGALOC_OFFLINE` | `0` | `1` to require cached/local weights |
-| `MEGALOC_THREADS` | PyTorch default | Positive number of CPU threads |
-
-For example:
-
-```bash
-MEGALOC_DEVICE=cpu MEGALOC_THREADS=4 python -m uvicorn api:app --host 127.0.0.1 --port 8000
-```
-
-Invalid inputs or unreadable images return HTTP 422. Insufficient model memory
-returns HTTP 503; reduce image size or batch size. Model execution is serialized
-across concurrent requests. This local API has no authentication; `/infer/paths`
-reads paths accessible to the server process.
-
-The uploads follow the [FastAPI file/form conventions](https://fastapi.tiangolo.com/tutorial/request-files/).
-To run HTTP integration tests (small replacement model; no weight download):
-
-```bash
-python -m pip install -r requirements-dev.txt
-python -m pytest -q
-```
-
-### Manual API client
-
-With the API running, install the lightweight client dependency and send an image:
-
-```bash
-python -m pip install 'httpx>=0.27,<1'
-python test_api_client.py /path/to/image.jpg --output response.json
-```
-
-The default URL is `http://127.0.0.1:8001`, matching the Docker launch script.
-Use `--url http://127.0.0.1:8000` for a server started directly with Uvicorn on
-port 8000, `--references ref1.jpg ref2.jpg`
-to compare images, or `--mode paths` to send server-side paths instead of files.
-`--size HEIGHT WIDTH`, `--batch-size`, `--top-k`, `--timeout`, and
-`--include-descriptors` customize the request. `--recursive` is available in paths
-mode. The script checks `/health`, prints a compact result, and exits with a nonzero
-code on connection or HTTP errors. See `python test_api_client.py --help`.
-Calls to `localhost` or loopback IPs bypass environment proxies; remote API URLs
-still use proxy settings from the environment.
-
-### Docker
-
-Build and start with the provided scripts (they also work from another directory):
-
-```bash
-./scripts/build_docker.sh
-./scripts/run_docker.sh --detach
+./docker-build.sh
+./docker-run.sh --detach
 
 docker logs -f megaloc-api
 docker stop megaloc-api
 ```
 
 Swagger: **http://127.0.0.1:8001/docs** after model loading. The default host port
-is 8001; use `--port PORT` to select another one. To change the image tag,
-port, or mount the test data:
+is 8001, forwarded to Uvicorn on port 8000 inside the container. To select another
+port and mount server-side images:
 
 ```bash
-./scripts/build_docker.sh --image megaloc-api:dev
-./scripts/run_docker.sh --image megaloc-api:dev --port 8080 \
-  --data-dir /home/SPeillet/projects/sevilla/data --threads 4 --detach
+./docker-run.sh --detach --port 8085 \
+  --data-dir /home/SPeillet/projects/sevilla/data
 ```
 
-Use container paths starting with `/data` for `/infer/paths`. The scripts preserve
-the weight cache in `megaloc-hf-cache` by default. `--offline` requires weights
-already present in that cache. `--env-file` passes server configuration through a
-Docker environment file. See each script's `--help` for all options. By default,
-running in the foreground displays logs; press Ctrl+C to stop. An existing
-container with the same name must be stopped before starting another one.
+The data directory is mounted read-only at `/data`. The named volume
+`megaloc-hf-cache` keeps downloaded weights between runs. The container runs as
+UID 10001, and mounted image files must be readable by that user. Stop an existing
+container named `megaloc-api` before launching another one. Use `--help` on each
+Docker script for image, cache, CPU thread, offline and other options.
 
-Build and run the API on CPU:
+The build and run scripts forward exported proxy variables. The Dockerfile
+normalizes uppercase/lowercase names for APT and pip without storing proxy values
+in the image. The health check bypasses proxies when calling the local API.
+When using `sudo`, preserve the proxy environment according to your system policy.
+
+### Test the API with an image
+
+With the container running:
 
 ```bash
-docker build -t megaloc-api .
-docker run --rm --name megaloc-api \
-  -p 127.0.0.1:8001:8000 \
-  -v megaloc-hf-cache:/home/megaloc/.cache/huggingface \
-  megaloc-api
+python test_api.py /path/to/image.jpg \
+  --include-descriptors --output outputs/response.json
+
+# If the container was launched with --port 8085:
+python test_api.py /path/to/image.jpg --url http://127.0.0.1:8085
 ```
 
-Swagger is available at **http://127.0.0.1:8001/docs** once the model has loaded.
-The first launch downloads the weights. The named volume preserves them across
-container restarts; weights are not embedded in the image. The image installs
-CPU wheels from the [official PyTorch index](https://docs.pytorch.org/get-started/previous-versions/).
-The container runs as UID 10001 with one Uvicorn worker and a `/health` health check.
-The health check connects directly to the API inside the container, bypassing
-proxies even if `NO_PROXY` is missing. External model downloads still use the proxy.
+The client defaults to `http://127.0.0.1:8001`. It checks `/health`, uploads the
+image, prints dimensions and norms, and optionally saves the JSON response.
+`--references` supplies reference images, `--top-k` controls ranking,
+`--mode paths` sends server-side paths instead of uploading files, and `--recursive`
+scans server directories in that mode. See `python test_api.py --help`.
+Local API calls bypass proxies; remote API URLs use the environment proxy settings.
 
-Test it from another terminal with a file on the host:
+### API endpoints and configuration
+
+| Endpoint | Input | Result |
+| --- | --- | --- |
+| `GET /health` | None | Status and device after model loading |
+| `POST /infer/upload` | Multipart images and optional references | Descriptors and reference ranking |
+| `POST /infer/paths` | JSON image/reference paths or directories on the server | Descriptors and reference ranking |
+
+Both inference endpoints accept `height`/`width` (default 322, multiples of 14,
+maximum 1400), `batch_size` (1–64), `top_k` (1–1000), and `include_descriptors`.
+The API loads the model once at startup and serializes model execution. Use one
+Uvicorn worker. Swagger, ReDoc and the OpenAPI schema are at `/docs`, `/redoc`,
+and `/openapi.json`. For a server without Docker:
 
 ```bash
-python test_api_client.py /path/to/image.jpg --url http://127.0.0.1:8001 --output response.json
+python -m uvicorn api:app --host 127.0.0.1 --port 8001
 ```
 
-Uploads work without mounting image directories. For `/infer/paths`, mount your
-data read-only and use the paths **inside the container**, such as `/data/image.jpg`:
+Server settings use environment variables: `MEGALOC_DEVICE` (default `auto`),
+`MEGALOC_WEIGHTS` (local checkpoint), `MEGALOC_CACHE_DIR`, `MEGALOC_OFFLINE`, and
+`MEGALOC_THREADS`. Pass them using `docker-run.sh --env-file FILE` or dedicated
+script options. This local API has no authentication; `/infer/paths` reads files
+accessible to the server process. Invalid images/options return HTTP 422;
+insufficient model memory returns HTTP 503.
+
+### Automated checks
+
+Tests use a small replacement model and require no weight download:
 
 ```bash
-docker run --rm --name megaloc-api \
-  -p 127.0.0.1:8001:8000 \
-  -v megaloc-hf-cache:/home/megaloc/.cache/huggingface \
-  -v /home/SPeillet/projects/sevilla/data:/data:ro \
-  -e MEGALOC_THREADS=4 \
-  megaloc-api
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
 ```
-
-The mounted files must be readable by UID 10001. Pass API settings with `-e`, for
-example `-e MEGALOC_OFFLINE=1` after the weights have been cached. Local weights can
-also be mounted read-only and selected with `-e MEGALOC_WEIGHTS=/weights/model.safetensors`.
-The `.dockerignore` excludes the Python environment, Git history, and local outputs.
-For Docker run options, see the [official reference](https://docs.docker.com/engine/containers/run/).
-
-If a build reports `Unable to locate package libgomp1`, check the preceding APT
-messages: a timeout fetching package indexes can cause this error. The Dockerfile
-uses [Debian's HTTPS repositories](https://wiki.debian.org/SourcesList), retries
-downloads, and stops if any package index cannot be updated.
-
-On networks requiring a proxy, the build and run scripts automatically forward
-exported proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `FTP_PROXY`, `ALL_PROXY`,
-`NO_PROXY`, and their lowercase equivalents). This lets APT/pip download packages
-and lets the API download model weights at startup. The scripts pass variable
-names to Docker, without printing their values. Proxy values are not added to the
-Dockerfile or baked into the image. See [Docker's proxy documentation](https://docs.docker.com/engine/cli/proxy/).
-The Dockerfile normalizes uppercase/lowercase proxy names for APT and pip and
-uses the HTTP proxy for HTTPS when no dedicated HTTPS proxy is provided.
-To build directly without the helper script, pass exported proxy variables:
-
-```bash
-docker build --build-arg http_proxy --build-arg https_proxy --build-arg no_proxy \
-  -t megaloc-api .
-```
-
-Use `--no-proxy` to disable forwarding from the terminal; any proxy settings in
-Docker's own configuration or `--env-file` still apply. If using `sudo`, ensure
-the proxy environment is preserved according to your system's sudo policy.
-
-If HTTPS still times out inside the build but works on the host, try host
-networking on Linux:
-
-```bash
-./scripts/build_docker.sh --network host
-```
-
-This uses the Docker builder host's network for build steps only; it does not
-change the API's port mapping. A remote builder uses its own host's network.
-Custom BuildKit builders may require the `network.host` entitlement. A proxy
-address pointing at `localhost` must also be reachable from inside the container;
-in a bridged container `localhost` refers to that container. A build warning about
-missing Git commit information is separate from APT connectivity errors.
 
 ### FAQ
 

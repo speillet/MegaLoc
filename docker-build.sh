@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: build_docker.sh [options]
+Usage: docker-build.sh [options]
 Construit l'image depuis la racine du dépôt, quel que soit le dossier courant.
 
   --image NAME          Nom/tag de l'image (défaut : megaloc-api:latest)
@@ -19,7 +19,7 @@ EOF
 die() { echo "Erreur : $*" >&2; exit 1; }
 need_value() { [[ $# -ge 2 && -n "$2" ]] || die "Valeur manquante pour $1"; }
 
-repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 image="megaloc-api:latest"
 options=()
 forward_proxy=true
