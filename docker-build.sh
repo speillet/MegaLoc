@@ -11,7 +11,7 @@ Construit l'image depuis la racine du dépôt, quel que soit le dossier courant.
   --pull                Actualiser l'image Python de base
   --network MODE        Réseau de build : default, host ou none
   --no-proxy            Ne pas transmettre les variables de proxy du terminal
-  --torch-index-url URL Index des paquets PyTorch (défaut : index CPU du Dockerfile)
+  --torch-index-url URL Index PyTorch CUDA (défaut : CUDA 13.0, cu130)
   -h, --help            Afficher cette aide
 EOF
 }

@@ -3,14 +3,15 @@ FROM python:3.12-slim-bookworm
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /usr/local/bin/uv
 
-ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_PYTHON_DOWNLOADS=never \
     UV_LINK_MODE=copy \
     HF_HOME=/home/megaloc/.cache/huggingface \
-    MEGALOC_DEVICE=auto
+    MEGALOC_DEVICE=cuda \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 WORKDIR /app
 
@@ -34,7 +35,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
            https_proxy="${https_proxy:-${HTTPS_PROXY:-${http_proxy:-${HTTP_PROXY:-}}}}" \
            no_proxy="${no_proxy:-${NO_PROXY:-}}" \
     && uv pip install --system torch torchvision --default-index "${TORCH_INDEX_URL}" \
-    && uv pip install --system -r requirements.txt
+    && uv pip install --system -r requirements.txt \
+    && python -c "import torch; assert torch.version.cuda is not None, 'PyTorch doit inclure CUDA dans cette image'; print('PyTorch CUDA:', torch.version.cuda)"
 
 COPY api.py inference.py megaloc_model.py cli_pipeline.py ./
 

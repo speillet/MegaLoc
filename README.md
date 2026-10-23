@@ -84,6 +84,35 @@ similarities, not probabilities; MegaLoc does not directly predict GPS coordinat
 
 ### Docker API
 
+The container runs on **NVIDIA GPU by default**. The image installs CUDA 13.0
+PyTorch wheels from the [official CUDA index](https://pytorch.org/get-started/previous-versions/),
+and sets `MEGALOC_DEVICE=cuda`. The launcher exposes GPUs using `--gpus all`.
+The NVIDIA driver and [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+must be installed and configured on the host. The toolkit is installed on the
+host, not in the image. The CUDA wheel dependencies provide the CUDA runtime in
+the container; the NVIDIA toolkit exposes the host GPU and driver libraries.
+
+On Ubuntu/Debian, install and configure the toolkit once on the host using the
+[NVIDIA instructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+  | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+  | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+```
+
+The last command restarts the Docker daemon; run this setup before starting the
+new API container. Preserve proxy variables for `sudo apt-get` if your network
+requires them. This host setup requires administrator privileges.
+
 From the repository root:
 
 ```bash
@@ -108,6 +137,32 @@ The data directory is mounted read-only at `/data`. The named volume
 UID 10001, and mounted image files must be readable by that user. Stop an existing
 container named `megaloc-api` before launching another one. Use `--help` on each
 Docker script for image, cache, CPU thread, offline and other options.
+Use `--gpus device=0` to expose a specific host GPU. The default CUDA device is the
+first GPU visible inside the container. If CUDA is inaccessible, startup fails
+before loading weights rather than falling back to CPU. The build checks that
+the installed PyTorch includes CUDA; a GPU is needed when running, not building.
+
+To replace a previously built CPU container while keeping the weights cache:
+
+```bash
+./docker-build.sh
+docker rm -f megaloc-api
+./docker-run.sh --detach --port 8085
+docker logs -f megaloc-api
+```
+
+Verify GPU access and the API after startup:
+
+```bash
+docker exec megaloc-api nvidia-smi
+docker exec megaloc-api python -c 'import torch; print(torch.version.cuda, torch.cuda.is_available(), torch.cuda.get_device_name(0))'
+curl --noproxy '*' http://127.0.0.1:8085/health
+```
+
+The health response should contain `"device": "cuda"`. If Docker reports that it
+cannot select a driver with GPU capabilities, follow the NVIDIA Container Toolkit
+installation/configuration guide linked above. Run the Docker commands with
+`sudo` if your account requires it.
 
 The build and run scripts forward exported proxy variables. The Dockerfile
 normalizes uppercase/lowercase names for APT and uv without storing proxy values
@@ -155,7 +210,8 @@ and `/openapi.json`. For a server without Docker:
 python -m uvicorn api:app --host 127.0.0.1 --port 8001
 ```
 
-Server settings use environment variables: `MEGALOC_DEVICE` (default `auto`),
+Server settings use environment variables: `MEGALOC_DEVICE` (`cuda` in Docker,
+`auto` outside Docker),
 `MEGALOC_WEIGHTS` (local checkpoint), `MEGALOC_CACHE_DIR`, `MEGALOC_OFFLINE`, and
 `MEGALOC_THREADS`. Pass them using `docker-run.sh --env-file FILE` or dedicated
 script options. This local API has no authentication; `/infer/paths` reads files

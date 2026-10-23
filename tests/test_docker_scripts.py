@@ -71,3 +71,11 @@ def test_invalid_network(docker_command):
     result, args = docker_command("docker-build.sh", "--network", "invalid")
     assert result.returncode != 0
     assert args == []
+
+
+@pytest.mark.parametrize("options,spec", [([], "all"), (["--gpus", "device=0"], "device=0")])
+def test_run_exposes_gpus_and_preserves_port(docker_command, options, spec):
+    result, args = docker_command("docker-run.sh", "--port", "8085", *options)
+    assert result.returncode == 0, result.stderr
+    assert args[args.index("--gpus") + 1] == spec
+    assert args[args.index("--publish") + 1] == "127.0.0.1:8085:8000"
