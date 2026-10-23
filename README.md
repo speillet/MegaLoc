@@ -60,8 +60,8 @@ regression tests live in `tests/`.
 Requires Python 3.10 or newer:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+conda create -n megaloc python=3.12 pip -y
+conda activate megaloc
 python -m pip install -r requirements.txt
 
 python cli_pipeline.py image.jpg --output outputs/descriptor.pt
